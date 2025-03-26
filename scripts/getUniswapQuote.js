@@ -59,56 +59,13 @@ const quoterAbi = [
 const ethAddress = "0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14";
 const usdcAddress = "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238";
 
-const factoryAbi = [
-  "function getPool(address tokenA, address tokenB, uint24 fee) external view returns (address pool)"
-];
-
-const poolAbi = [
-  "function slot0() external view returns (uint160 sqrtPriceX96, int24 tick, uint16 observationIndex, uint16 observationCardinality, uint16 observationCardinalityNext, uint8 feeProtocol, bool unlocked)",
-  "function token0() external view returns (address)",
-  "function token1() external view returns (address)"
-];
 
 async function main() {
   const quoter = new ethers.Contract(quoterAddress, quoterAbi, provider);
 
-  const factoryAddress = await quoter.getFunction("factory").staticCall();
-  const factory = new ethers.Contract(factoryAddress, factoryAbi, provider);
-
   const fee = 3000; // 0.3% pool
   const amountIn = ethers.parseUnits("1", 18); // 1 WETH
 
-  const poolAddress = await factory.getPool(ethAddress, usdcAddress, fee);
-  if (poolAddress === ethers.ZeroAddress) {
-    console.log("Pool not found for this token pair and fee tier.");
-    return;
-  }
-
-  const pool = new ethers.Contract(poolAddress, poolAbi, provider);
-  const [sqrtPriceX96] = await pool.slot0();
-
-  const token0 = await pool.token0();
-  const token1 = await pool.token1();
-
-  let rawPrice;
-  if (token0.toLowerCase() === ethAddress.toLowerCase()) {
-    rawPrice = sqrtPriceX96 ** 2n / (2n ** 192n);
-  } else {
-    rawPrice = (2n ** 192n) / (sqrtPriceX96 ** 2n);
-  }
-
-  // Convert rawPrice from BigInt to decimal using string → float
-  const priceDecimal = Number(rawPrice.toString()) / 1e6; // USDC has 6 decimals
-  const floatAmountIn = Number(ethers.formatUnits(amountIn, 18)); // WETH has 18 decimals
-
-  const estimatedOutput = floatAmountIn * priceDecimal;
-
-  console.log(`Estimated (manual) output for 1 ETH → USDC: ${estimatedOutput.toFixed(6)} USDC`);
-
-  
-  console.log(`Pool address: ${poolAddress}`);
-  console.log(`token0: ${token0}`);
-  console.log(`token1: ${token1}`);
 
   try {
     const amountOutStruct = await quoter.getFunction("quoteExactInputSingle").staticCall({
